@@ -46,12 +46,12 @@
         <Reference Include="System.Xml" />
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="Game.cs" />
-        <Compile Include="Logger.cs" />
-        <Compile Include="Player.cs" />
-        <Compile Include="Server.cs" />
-        <Compile Include="ServerConsole.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
+        <Compile Include="src\game\Game.cs" />
+        <Compile Include="src\game\Player.cs" />
+        <Compile Include="src\Server.cs" />
+        <Compile Include="src\ServerConsole.cs" />
+        <Compile Include="src\util\Logger.cs" />
     </ItemGroup>
     <ItemGroup>
       <None Include="packages.config" />
