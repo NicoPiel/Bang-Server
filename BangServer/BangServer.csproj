@@ -32,27 +32,23 @@
         <WarningLevel>4</WarningLevel>
     </PropertyGroup>
     <ItemGroup>
-        <Reference Include="AsyncIO, Version=0.1.25.0, Culture=neutral, PublicKeyToken=44a94435bd6f33f8">
-          <HintPath>..\packages\NetMQ.Unity.4.0.0.1\lib\AsyncIO.dll</HintPath>
-          <Private>True</Private>
-        </Reference>
-        <Reference Include="JetBrains.Annotations, Version=10.0.0.0, Culture=neutral, PublicKeyToken=1010a0d8d6380325">
-          <HintPath>..\packages\NetMQ.Unity.4.0.0.1\lib\JetBrains.Annotations.dll</HintPath>
+        <Reference Include="LiteNetLib, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
+          <HintPath>..\packages\LiteNetLib.0.8.3.1\lib\net35\LiteNetLib.dll</HintPath>
           <Private>True</Private>
         </Reference>
         <Reference Include="Microsoft.CSharp" />
-        <Reference Include="NetMQ, Version=4.0.0.0, Culture=neutral, PublicKeyToken=a6decef4ddc58b3a">
-          <HintPath>..\packages\NetMQ.Unity.4.0.0.1\lib\NetMQ.dll</HintPath>
-          <Private>True</Private>
-        </Reference>
+        <Reference Include="mscorlib" />
         <Reference Include="System" />
         <Reference Include="System.Core" />
         <Reference Include="System.Data" />
+        <Reference Include="System.Numerics" />
         <Reference Include="System.ServiceModel" />
         <Reference Include="System.Xml" />
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="Game.cs" />
         <Compile Include="Logger.cs" />
+        <Compile Include="Player.cs" />
         <Compile Include="Server.cs" />
         <Compile Include="ServerConsole.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
