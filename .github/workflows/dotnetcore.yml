@@ -16,12 +16,10 @@ jobs:
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 3.1.101
+        dotnet-version: 3.1.100
     - name: Install dependencies
       run: dotnet restore
     - name: Build
-      run: |
-           cd "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\"
-           .\MSBuild.exe $Env:GITHUB_WORKSPACE\"E:\dev\csharp\BangServer"
+      run: dotnet build Bang-Server --no-restore --verbosity normal
     - name: Test
       run: dotnet test --no-restore --verbosity normal
