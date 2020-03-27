@@ -58,16 +58,20 @@ namespace BangServer.game
             Player currentTurn = Players.First(player => player.TheirTurn = true);
             currentTurn.TheirTurn = false;
 
+            Player nextPlayer;
+
             if (!(Players.IndexOf(currentTurn) >= PlayersOnline() - 1))
             {
-                Player nextPlayer = Players[Players.IndexOf(currentTurn) + 1];
+                nextPlayer = Players[Players.IndexOf(currentTurn) + 1];
                 nextPlayer.TheirTurn = true;
             }
             else
             {
-                Player nextPlayer = Players[0];
+                nextPlayer = Players[0];
                 nextPlayer.TheirTurn = true;
             }
+            
+            Log($"It's now {nextPlayer.Username}'s turn.");
         }
 
         public bool LobbyReady()
@@ -86,7 +90,7 @@ namespace BangServer.game
             {
                 foreach (Player player in Players.Where(player => player.CardsInHand() <= player.MaxHealth))
                 {
-                    player.AddCardToHand(Deck.Draw());
+                    AddCardToHand(player, Deck.Draw());
                 }
             }
         }
@@ -125,6 +129,41 @@ namespace BangServer.game
 
             Error("Player couldn't be removed.");
             return null;
+        }
+        
+        private void AddCardToHand(Player player, string card)
+        {
+            player.Hand?.Add(card);
+        }
+        
+        private void AddCardsToHand(Player player, params string[] cards)
+        {
+            player.Hand?.AddRange(cards);
+        }
+
+        private void RemoveCardFromHand(Player player, string card)
+        {
+            player.Hand?.Remove(card);
+            DiscardPile.Push(card);
+        }
+        
+        private void RemoveCardsFromHand(Player player, params string[] cards)
+        {
+            foreach (var card in cards)
+            {
+                player.Hand?.Remove(card);
+                DiscardPile.Push(card);
+            }
+        }
+
+        private string FindCardInDeck(string card)
+        {
+            return Deck.First(c => c == card);
+        }
+        
+        private string FindCardInDiscardPile(string card)
+        {
+            return DiscardPile.First(c => c == card);
         }
 
         /// <summary>

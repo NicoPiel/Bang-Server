@@ -125,6 +125,9 @@ namespace BangServer
                     case "DrawCard":
                         DealCardToPlayer(peer);
                         break;
+                    case "NextTurn":
+                        _game.NextTurn();
+                        break;
                     default: // Means the client sent an incomprehensible message.
                         SendMessage(peer, "INFO", "ERROR", "Unknown Command");
                         break;

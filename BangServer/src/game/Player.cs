@@ -62,29 +62,6 @@ namespace BangServer.game
             ReadyCheck = false;
         }
 
-        public void AddCardToHand(string card)
-        {
-            Hand?.Add(card);
-        }
-        
-        public void AddCardsToHand(params string[] cards)
-        {
-            Hand?.AddRange(cards);
-        }
-
-        public void RemoveCardFromHand(string card)
-        {
-            Hand?.Remove(card);
-        }
-        
-        public void RemoveCardsFromHand(params string[] cards)
-        {
-            foreach (string card in cards)
-            {
-                Hand?.Remove(card);
-            }
-        }
-
         public int CardsInHand()
         {
             return Hand.Count;
