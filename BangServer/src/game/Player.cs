@@ -1,4 +1,6 @@
-﻿namespace BangServer
+﻿using System.Collections.Generic;
+
+namespace BangServer.game
 {
     public class Player
     {
@@ -6,21 +8,48 @@
         public string Username { get; set; }
         public bool ReadyCheck { get; set; }
         
+        public int Range { get; set; }
+        public int Distance{ get; set; }
+        public int Health{ get; set; }
+        public int MaxHealth{ get; set; }
+
+        public bool TheirTurn { get; set; }
+        
+        public string Role { get; set; }
+        public string Character { get; set; }
+        
+        public List<string> Hand { get; }
+        
         public Player(int id)
         {
             Id = id;
             Username = null;
-        }
+            ReadyCheck = false;
 
-        public Player(int id, string username)
-        {
-            Id = id;
-            Username = username;
+            Range = 1;
+            Distance = 1;
+            MaxHealth = 0;
+            Health = MaxHealth;
+
+            Role = string.Empty;
+            Character = string.Empty;
+            
+            Hand = new List<string>();
         }
 
         public void SetUsername(string username)
         {
             Username = username;
+        }
+
+        public void AssignRole(string role)
+        {
+            Role = role;
+        }
+
+        public void AssignCharacter(string character)
+        {
+            Character = character;
         }
 
         public void Ready()
@@ -31,6 +60,34 @@
         public void Unready()
         {
             ReadyCheck = false;
+        }
+
+        public void AddCardToHand(string card)
+        {
+            Hand?.Add(card);
+        }
+        
+        public void AddCardsToHand(params string[] cards)
+        {
+            Hand?.AddRange(cards);
+        }
+
+        public void RemoveCardFromHand(string card)
+        {
+            Hand?.Remove(card);
+        }
+        
+        public void RemoveCardsFromHand(params string[] cards)
+        {
+            foreach (string card in cards)
+            {
+                Hand?.Remove(card);
+            }
+        }
+
+        public int CardsInHand()
+        {
+            return Hand.Count;
         }
 
         public override bool Equals(object obj)
@@ -47,6 +104,11 @@
         public override int GetHashCode()
         {
             return base.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return Username;
         }
     }
 }

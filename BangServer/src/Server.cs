@@ -1,18 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading;
+using BangServer.game;
 using LiteNetLib;
 using LiteNetLib.Utils;
-using static BangServer.Logger;
+using static BangServer.util.Logger;
 
 namespace BangServer
 {
+    /// <summary>
+    /// An abstraction of a managed socket. The server takes care of managing a <see cref="Game"/> session.
+    /// There can only be one game per server.
+    /// </summary>
     public class Server
     {
-        /// <summary></summary>
-        public NetManager Manager { get; }
+        /// <summary>The server's socket manager.</summary>
+        private NetManager Manager { get; }
+
+        /// <summary>A thread to run the main loop on, so the main thread can still accept input.</summary>
         private Thread _workerThread;
-        private Game _game;
+
+        /// <summary>Alias for all the information the server needs to hold on the ongoing game.</summary>
+        private readonly Game _game;
 
         /// <summary>
         /// A new Server. Takes care of registering listener events, binding the server's socket and so on.
@@ -26,6 +35,7 @@ namespace BangServer
 
             Manager.Start(5001);
 
+            // Accepts incoming connection, if they share the same key.
             listener.ConnectionRequestEvent += request =>
             {
                 if (Manager.PeersCount < 12)
@@ -34,18 +44,25 @@ namespace BangServer
                     request.Reject();
             };
 
-            listener.PeerConnectedEvent += PlayerJoin;
+            // Call this function, when the server shuts down.
+            AppDomain.CurrentDomain.ProcessExit += OnServerShutdown;
 
-            listener.PeerDisconnectedEvent += PlayerQuit;
+            // Triggers the PlayerJoin function each time a peer connects successfully.
+            listener.PeerConnectedEvent += OnPlayerJoin;
 
+            // Triggers the PlayerQuit function each time a peer disconnects successfully.
+            listener.PeerDisconnectedEvent += OnPlayerQuit;
+
+            // Tries to process incoming messages.
             listener.NetworkReceiveEvent += Process;
 
+            Confirm("Server online.");
             Log("Listening..");
             MainLoop();
         }
 
         /// <summary>
-        /// Creates a new worker thread and then checks for incoming 'events' every 20 ms.
+        /// Creates a new worker thread and then checks for incoming 'events' every 10 ms.
         /// </summary>
         private void MainLoop()
         {
@@ -54,7 +71,7 @@ namespace BangServer
                 while (!Console.KeyAvailable)
                 {
                     Manager.PollEvents();
-                    Thread.Sleep(20);
+                    Thread.Sleep(10);
                 }
 
                 Manager.Stop();
@@ -73,7 +90,7 @@ namespace BangServer
          * 1 -> Topic
          * 2...n -> Data
          */
-        
+
         /// <summary>
         /// Processes any incoming messages to the server.
         /// </summary>
@@ -82,23 +99,37 @@ namespace BangServer
         /// <param name="method"></param>
         private void Process(NetPeer peer, NetDataReader reader, DeliveryMethod method)
         {
-            var message = reader.GetStringArray();
-            
-            switch (message[0])
+            ThreadPool.QueueUserWorkItem(state =>
             {
-                case "PlayerJoin":
-                    FinishPlayerJoinForPeer(peer, message[1]);
-                    break;
-                case "SendPlayerList":
-                    BroadcastPlayerlist();
-                    break;
-                case "LobbyReady":
-                    ReadyPlayerAndBroadcast(peer, message[1]);
-                    break;
-                default:
-                    SendMessage(peer, "INFO", "ERROR", "Unknown Command");
-                    break;
-            }
+                var message = reader.GetStringArray();
+
+                switch (message[0])
+                {
+                    case "PlayerJoin": // Means a new player has joined the lobby and should be added to the server.
+                        FinishPlayerJoinForPeer(peer, message[1]);
+                        break;
+                    case "SendPlayerList": // Means the client has requested an update of their playerlist.
+                        BroadcastPlayerlist();
+                        break;
+                    case "LobbyReady": // Means any player has performed a ready check, so the server can check if all the players have done so.
+                        ReadyPlayerAndBroadcast(peer, message[1]);
+                        break;
+                    case "GameStarted": // Means the game scene has been loaded, so the server can distribute roles and chars.
+                        _game.Start();
+                        SendRoleAndCharacters(peer);
+                        break;
+                    case "SetMaxHealth": // Means the player is set up and ready to receive data relevant to gameplay.
+                        _game.DealCardsAtStart();
+                        SendHand(peer, int.Parse(message[1]));
+                        break;
+                    case "DrawCard":
+                        DealCardToPlayer(peer);
+                        break;
+                    default: // Means the client sent an incomprehensible message.
+                        SendMessage(peer, "INFO", "ERROR", "Unknown Command");
+                        break;
+                }
+            });
         }
 
         /// <summary>
@@ -110,15 +141,15 @@ namespace BangServer
         private void FinishPlayerJoinForPeer(NetPeer peer, string username)
         {
             Player player = new Player(peer.Id);
-            
+
             if (_game.PlayerIsOnline(player))
             {
                 player = _game.FindPlayerById(peer.Id);
                 player.SetUsername(username);
                 SendMessage(peer, "DATA", "JOIN", "ACK"); // Accept connection
                 SendMessage(peer, "DATA", "PLAYERLIST", _game.PlayerListToArray());
-                Log($"{username} logged in successfully.");
-                
+                Log($"{username} connected.");
+
                 Broadcast("DATA", "PLAYERJOINED", username);
             }
             else
@@ -194,21 +225,73 @@ namespace BangServer
                     break;
                 }
             }
+
+            if (_game.LobbyReady())
+            {
+                Log("Lobby is ready.");
+                Broadcast("DATA", "GAMESTART");
+                _game.SetupRoles(_game.PlayersOnline());
+            }
+
+            Log("Lobby isn't ready.");
+        }
+
+        private void SendRoleAndCharacters(NetPeer peer)
+        {
+            Player player = _game.FindPlayerById(peer.Id);
+            Player sheriff = _game.FindPlayerByRole("Sheriff");
+
+            SendMessage(peer, "DATA", "ROLEINFO", player.Username, player.Role);
+            SendMessage(peer, "DATA", "ROLEINFO", sheriff.Username, sheriff.Role);
+
+            foreach (Player p in _game.Players)
+            {
+                SendMessage(peer, "DATA", "CHARACTERINFO", p.Username, p.Character);
+            }
+
+            SendMessage(peer, "DATA", "ALLSENT");
+        }
+
+        private void SendHand(NetPeer peer, int maxHealth)
+        {
+            Player player = _game.FindPlayerById(peer.Id);
+
+            player.MaxHealth = maxHealth;
+
+            SendMessage(peer, "DATA", "RECEIVEHANDCARDS", player.Hand.ToArray());
+            Log($"Sent cards to {player.Username}");
+        }
+
+        private void DealCardToPlayer(NetPeer peer)
+        {
+            Player player = _game.FindPlayerById(peer.Id);
+            var card = _game.Deck.Draw();
             
-            if (_game.LobbyReady()) Log("Lobby is ready.");
-            else Log("Lobby isn't ready.");
+            SendMessage(peer, "DATA", "CARD", card);
+            Log($"{player.Username} drew a {card}.");
         }
 
         // EVENTS
 
-        private void PlayerJoin(NetPeer peer)
+        private void OnPlayerJoin(NetPeer peer)
         {
             _game.AddPlayer(peer.Id);
         }
 
-        private void PlayerQuit(NetPeer peer, DisconnectInfo info)
+        private void OnPlayerQuit(NetPeer peer, DisconnectInfo info)
         {
             Broadcast("DATA", "PLAYERDC", _game.RemovePlayer(peer.Id).Username);
+
+            if (_game?.PlayersOnline() <= 0)
+            {
+                _game.Restart();
+            }
+        }
+
+        private void OnServerShutdown(object sender, EventArgs e)
+        {
+            Broadcast("INFO", "SERVERQUIT");
+            _workerThread?.Join();
         }
     }
 }

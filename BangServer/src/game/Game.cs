@@ -1,15 +1,73 @@
 ﻿using System.Collections.Generic;
-using static BangServer.Logger;
+using System.Linq;
+using BangServer.util;
+using static BangServer.util.Logger;
 
-namespace BangServer
+namespace BangServer.game
 {
     public class Game
     {
-        public List<Player> Players { get; }
+        private const int MinPlayers = 2;
+        public List<Player> Players { get; set; }
+
+        private List<string> Characters { get; set; }
+        private List<string> Roles { get; set; }
+        public Deck Deck { get; set; }
+        public Stack<string> DiscardPile { get; set; }
+
+        private bool _setup;
 
         public Game()
         {
+            _setup = false;
+
             Players = new List<Player>();
+            Characters = SetupCharacters();
+            DiscardPile = new Stack<string>();
+        }
+
+        public void Start()
+        {
+            Highlight("Game starting..");
+
+            Deck = new Deck();
+            AssignRolesAndCharacters();
+
+            Players[0].TheirTurn = true;
+
+            Confirm("Game started..");
+        }
+
+        public void Restart()
+        {
+            Highlight("Game restarting..");
+
+            // Constructor stuff
+            _setup = false;
+
+            Players = new List<Player>();
+            Characters = SetupCharacters();
+            DiscardPile = new Stack<string>();
+
+            // Start stuff
+            Start();
+        }
+
+        public void NextTurn()
+        {
+            Player currentTurn = Players.First(player => player.TheirTurn = true);
+            currentTurn.TheirTurn = false;
+
+            if (!(Players.IndexOf(currentTurn) >= PlayersOnline() - 1))
+            {
+                Player nextPlayer = Players[Players.IndexOf(currentTurn) + 1];
+                nextPlayer.TheirTurn = true;
+            }
+            else
+            {
+                Player nextPlayer = Players[0];
+                nextPlayer.TheirTurn = true;
+            }
         }
 
         public bool LobbyReady()
@@ -19,9 +77,20 @@ namespace BangServer
                 if (!player.ReadyCheck) return false;
             }
 
-            return true;
+            return PlayersOnline() >= MinPlayers;
         }
-        
+
+        public void DealCardsAtStart()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                foreach (Player player in Players.Where(player => player.CardsInHand() <= player.MaxHealth))
+                {
+                    player.AddCardToHand(Deck.Draw());
+                }
+            }
+        }
+
         /// <summary>
         /// Add a player to the <see cref="Players"/> list.
         /// </summary>
@@ -34,7 +103,7 @@ namespace BangServer
                 Players.Add(player);
                 return true;
             }
-            
+
             Error("Player " + player.Id + " already online.");
             return false;
         }
@@ -45,11 +114,17 @@ namespace BangServer
         public Player RemovePlayer(int id)
         {
             Player player = FindPlayerById(id);
-            
-            Log($"Player {player.Id}:{player.Username} disconnected.");
-            Players.Remove(player);
 
-            return player;
+            if (player != null)
+            {
+                Log($"{player.Username} disconnected.");
+                Players.Remove(player);
+
+                return player;
+            }
+
+            Error("Player couldn't be removed.");
+            return null;
         }
 
         /// <summary>
@@ -61,7 +136,7 @@ namespace BangServer
         {
             return Players.Find(player => player.Id == id);
         }
-        
+
         /// <summary>
         /// Uses LINQ to find a player by their username.
         /// </summary>
@@ -70,6 +145,16 @@ namespace BangServer
         public Player FindPlayerByName(string username)
         {
             return Players.Find(player => player.Username == username);
+        }
+
+        public Player FindPlayerByRole(string role)
+        {
+            return Players.Find(player => player.Role == role);
+        }
+
+        public Player FindPlayerByCharacter(string character)
+        {
+            return Players.Find(player => player.Character == character);
         }
 
         /// <summary>
@@ -101,7 +186,7 @@ namespace BangServer
         public string[] PlayerListToArray()
         {
             List<string> playerNames = new List<string>();
-            
+
             foreach (Player player in Players)
             {
                 playerNames.Add(player.Username);
@@ -113,6 +198,130 @@ namespace BangServer
         public int PlayersOnline()
         {
             return Players.Count;
+        }
+
+        public void AssignRolesAndCharacters()
+        {
+            if (_setup) return;
+
+            Roles.Shuffle();
+            Characters.Shuffle();
+
+            foreach (Player player in Players)
+            {
+                player.AssignCharacter(Characters.Last());
+                Characters.Remove(Characters.Last());
+                player.AssignRole(Roles.Last());
+                Roles.Remove(Roles.Last());
+
+                Highlight($"{player.Username} is now known as {player.Character}, playing the {player.Role}.");
+            }
+
+            _setup = true;
+        }
+
+        public void SetupRoles(int playerNumber)
+        {
+            if (playerNumber >= MinPlayers)
+            {
+                Roles = new Dictionary<int, List<string>>
+                {
+                    // DEBUG
+                    {
+                        1, new List<string>
+                        {
+                            "Sheriff",
+                        }
+                    },
+                    // DEBUG
+                    {
+                        2, new List<string>
+                        {
+                            "Sheriff",
+                            "Outlaw",
+                        }
+                    },
+                    // DEBUG
+                    {
+                        3, new List<string>
+                        {
+                            "Sheriff",
+                            "Outlaw",
+                            "Renegade"
+                        }
+                    },
+                    // REAL STUFF DOWN HERE
+                    {
+                        4, new List<string>
+                        {
+                            "Sheriff",
+                            "Outlaw",
+                            "Outlaw",
+                            "Renegade"
+                        }
+                    },
+                    {
+                        5, new List<string>
+                        {
+                            "Sheriff",
+                            "Outlaw",
+                            "Outlaw",
+                            "Deputy",
+                            "Renegade"
+                        }
+                    },
+                    {
+                        6, new List<string>
+                        {
+                            "Sheriff",
+                            "Outlaw",
+                            "Outlaw",
+                            "Deputy",
+                            "Deputy",
+                            "Renegade"
+                        }
+                    },
+                    {
+                        7, new List<string>
+                        {
+                            "Sheriff",
+                            "Outlaw",
+                            "Outlaw",
+                            "Outlaw",
+                            "Deputy",
+                            "Deputy",
+                            "Renegade"
+                        }
+                    }
+                }[playerNumber];
+            }
+            else
+            {
+                Error("Invalid number of players.");
+            }
+        }
+
+        private List<string> SetupCharacters()
+        {
+            return new List<string>()
+            {
+                "Bart Cassidy",
+                "Black Jack",
+                "Calamity Janet",
+                "El Gringo",
+                "Jesse Jones",
+                "Jourdonnais",
+                "Kit Carlson",
+                "Lucky Duke",
+                "Paul Regret",
+                "Pedro Ramirez",
+                "Rose Doolan",
+                "Sid Ketchum",
+                "Slab the Killer",
+                "Suzy Lafayette",
+                "Vulture Sam",
+                "Willy The Kid"
+            };
         }
     }
 }

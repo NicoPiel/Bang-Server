@@ -1,4 +1,4 @@
-﻿using static BangServer.Logger;
+﻿using static BangServer.util.Logger;
 
 namespace BangServer
 {
@@ -7,7 +7,7 @@ namespace BangServer
         public static void Main(string[] args)
         {
             Log("Starting server..");
-            Warn("Press any key to exit.");
+            Highlight("Press any key to exit.");
             Server server = new Server();
         }
     }
